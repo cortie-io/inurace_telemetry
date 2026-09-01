@@ -1,0 +1,27 @@
+{
+  "name": "inu-telemetry-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WebSocket ingest + live fan-out server for the INU Racing Team telemetry dashboard (device ingest at /device, dashboard viewers at /live), batched writes to Postgres.",
+  "main": "dist/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "simulate": "tsx scripts/simulate-device.ts"
+  },
+  "dependencies": {
+    "bcrypt-ts": "^5.0.2",
+    "pg": "^8.13.1",
+    "ws": "^8.18.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "@types/ws": "^8.5.13",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
