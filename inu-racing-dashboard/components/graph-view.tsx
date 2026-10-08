@@ -25,7 +25,7 @@ interface GraphCardProps {
   unit: string
   data: TelemetryPoint[]
   series: SeriesConfig[]
-  domain: [number, number]
+  domain: [number, number | 'auto']
   current: string
   danger?: number
   area?: boolean
@@ -232,6 +232,79 @@ export function GraphView({
         domain={[0, 40]}
         current={last ? last.kw.toFixed(1) : '—'}
         series={[{ key: 'kw', name: 'Power', color: 'var(--racing-blue)' }]}
+        area
+      />
+      <GraphCard
+        title="Battery SOC"
+        unit="%"
+        data={data}
+        domain={[0, 100]}
+        current={last ? String(last.batterySoc) : '—'}
+        series={[{ key: 'batterySoc', name: 'SOC', color: 'var(--racing-green)' }]}
+        area
+      />
+      <GraphCard
+        title="Ah Used"
+        unit="Ah"
+        data={data}
+        domain={[0, 'auto']}
+        current={last ? last.batteryAhUsed.toFixed(2) : '—'}
+        series={[{ key: 'batteryAhUsed', name: 'Used', color: 'var(--racing-gold)' }]}
+        area
+      />
+      <GraphCard
+        title="VESC / Motor Temp"
+        unit="°C"
+        data={data}
+        domain={[0, 150]}
+        current={last ? `${last.vescTemp} / ${last.motorTemp}` : '—'}
+        series={[
+          { key: 'vescTemp', name: 'VESC', color: 'var(--racing-gold)' },
+          { key: 'motorTemp', name: 'Motor', color: 'var(--racing-red)' },
+        ]}
+      />
+      <GraphCard
+        title="ERPM"
+        unit="erpm"
+        data={data}
+        domain={[0, 'auto']}
+        current={last ? String(last.erpm) : '—'}
+        series={[{ key: 'erpm', name: 'ERPM', color: 'var(--primary)' }]}
+        area
+      />
+      <GraphCard
+        title="Motor Current"
+        unit="A"
+        data={data}
+        domain={[-400, 400]}
+        current={last ? String(last.motorCurrent) : '—'}
+        series={[{ key: 'motorCurrent', name: 'Current', color: 'var(--racing-gold)' }]}
+      />
+      <GraphCard
+        title="Regen Current"
+        unit="A"
+        data={data}
+        domain={[0, 'auto']}
+        current={last ? String(last.regenCurrent) : '—'}
+        series={[{ key: 'regenCurrent', name: 'Regen', color: 'var(--racing-green)' }]}
+        area
+      />
+      <GraphCard
+        title="Regen Energy"
+        unit="Wh"
+        data={data}
+        domain={[0, 'auto']}
+        current={last ? last.regenWh.toFixed(2) : '—'}
+        series={[{ key: 'regenWh', name: 'Regen', color: 'var(--racing-green)' }]}
+        area
+      />
+      <GraphCard
+        title="Regen Charge"
+        unit="Ah"
+        data={data}
+        domain={[0, 'auto']}
+        current={last ? last.regenAh.toFixed(2) : '—'}
+        series={[{ key: 'regenAh', name: 'Regen', color: 'var(--racing-green)' }]}
         area
       />
     </div>

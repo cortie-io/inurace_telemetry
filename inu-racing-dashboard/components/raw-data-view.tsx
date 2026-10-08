@@ -16,6 +16,16 @@ interface RawSample {
   batteryCurrent: number
   rtd: boolean
   precharge: boolean
+  // null on rows recorded before these channels existed
+  batterySoc: number | null
+  batteryAhUsed: number | null
+  vescTemp: number | null
+  erpm: number | null
+  motorCurrent: number | null
+  motorTemp: number | null
+  regenWh: number | null
+  regenAh: number | null
+  regenCurrent: number | null
 }
 
 const PAGE_SIZE = 100
@@ -32,6 +42,27 @@ const COLUMNS: { key: keyof RawSample; label: string }[] = [
   { key: 'batteryCurrent', label: 'Batt A' },
   { key: 'rtd', label: 'RTD' },
   { key: 'precharge', label: 'PreChg' },
+  { key: 'batterySoc', label: 'SOC %' },
+  { key: 'batteryAhUsed', label: 'Used Ah' },
+  { key: 'vescTemp', label: 'VESC °C' },
+  { key: 'erpm', label: 'ERPM' },
+  { key: 'motorCurrent', label: 'Motor A' },
+  { key: 'motorTemp', label: 'Motor °C' },
+  { key: 'regenWh', label: 'Regen Wh' },
+  { key: 'regenAh', label: 'Regen Ah' },
+  { key: 'regenCurrent', label: 'Regen A' },
+]
+
+const ADDED_COLUMNS: { key: keyof RawSample; decimals: number }[] = [
+  { key: 'batterySoc', decimals: 1 },
+  { key: 'batteryAhUsed', decimals: 3 },
+  { key: 'vescTemp', decimals: 1 },
+  { key: 'erpm', decimals: 0 },
+  { key: 'motorCurrent', decimals: 1 },
+  { key: 'motorTemp', decimals: 1 },
+  { key: 'regenWh', decimals: 3 },
+  { key: 'regenAh', decimals: 3 },
+  { key: 'regenCurrent', decimals: 1 },
 ]
 
 // Shows telemetry_samples rows exactly as stored in Postgres — no aggregation, no downsampling.
@@ -91,7 +122,7 @@ export function RawDataView() {
       </div>
 
       <div className="overflow-x-auto bg-card">
-        <table className="w-full min-w-[900px] border-collapse font-mono text-xs">
+        <table className="w-full min-w-[1600px] border-collapse font-mono text-xs">
           <thead>
             <tr className="border-b border-border">
               {COLUMNS.map((c) => (
@@ -149,6 +180,14 @@ export function RawDataView() {
                   <td className="whitespace-nowrap px-3 py-1.5 text-foreground">
                     {r.precharge ? 'Y' : 'N'}
                   </td>
+                  {ADDED_COLUMNS.map((c) => {
+                    const v = r[c.key] as number | null
+                    return (
+                      <td key={c.key} className="whitespace-nowrap px-3 py-1.5 tabular-nums text-foreground">
+                        {v === null ? '—' : v.toFixed(c.decimals)}
+                      </td>
+                    )
+                  })}
                 </tr>
               ))
             )}

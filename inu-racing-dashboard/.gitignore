@@ -14,3 +14,8 @@ node_modules
 .next/
 .DS_Store
 .env
+
+# 비밀값 파일(예시 파일만 올린다)
+.env*
+!.env.example
+*.bak-local

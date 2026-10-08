@@ -5,7 +5,7 @@ import { queryRawSamplesInRange } from "@/db/telemetry";
 const MAX_RANGE_MS = 3 * 30 * 24 * 60 * 60 * 1000; // matches the 3-month retention window
 
 const CSV_HEADER =
-  "time,deviceKey,sessionId,steeringAngle,brakeFront,brakeRear,speed,batteryTemp,batteryVoltage,batteryCurrent,kw,rtd,precharge";
+  "time,deviceKey,sessionId,steeringAngle,brakeFront,brakeRear,speed,batteryTemp,batteryVoltage,batteryCurrent,kw,rtd,precharge,batterySoc,batteryAhUsed,vescTemp,erpm,motorCurrent,motorTemp,regenWh,regenAh,regenCurrent";
 
 function toCsvRow(r: Awaited<ReturnType<typeof queryRawSamplesInRange>>[number]): string {
   const kw = (r.batteryVoltage * r.batteryCurrent) / 1000;
@@ -26,6 +26,16 @@ function toCsvRow(r: Awaited<ReturnType<typeof queryRawSamplesInRange>>[number])
     kw.toFixed(3),
     r.rtd ? "1" : "0",
     r.precharge ? "1" : "0",
+    // Empty cell for rows recorded before these channels existed.
+    r.batterySoc ?? "",
+    r.batteryAhUsed ?? "",
+    r.vescTemp ?? "",
+    r.erpm ?? "",
+    r.motorCurrent ?? "",
+    r.motorTemp ?? "",
+    r.regenWh ?? "",
+    r.regenAh ?? "",
+    r.regenCurrent ?? "",
   ].join(",");
 }
 

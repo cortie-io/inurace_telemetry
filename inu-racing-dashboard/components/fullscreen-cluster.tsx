@@ -180,7 +180,7 @@ export function FullscreenCluster({
                 strokeWidth="6"
                 strokeLinecap="round"
                 style={{
-                  transition: 'stroke 0.2s',
+                  transition: 'stroke 0.03s linear',
                   filter: `drop-shadow(0 0 4px ${arcColor})`,
                 }}
               />
@@ -329,7 +329,7 @@ function Metric({
               width: `${barPct}%`,
               background: `linear-gradient(90deg, ${c}, ${c})`,
               boxShadow: `0 0 8px ${c}`,
-              transition: 'width 0.2s ease-out',
+              transition: 'width 0.03s linear',
             }}
           />
         </div>

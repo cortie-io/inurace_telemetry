@@ -58,15 +58,26 @@ export function LiveTicker({
       unit: 'A',
       danger: data.batteryCurrent >= thresholds.batteryCurrentMax,
     },
+    { id: 'CH08', label: 'SOC', value: data.batterySoc.toFixed(0), unit: '%' },
+    { id: 'CH09', label: 'Ah Used', value: data.batteryAhUsed.toFixed(2), unit: 'Ah' },
+    { id: 'CH10', label: 'VESC Temp', value: data.vescTemp.toFixed(1), unit: '°C' },
+    { id: 'CH11', label: 'Motor Temp', value: data.motorTemp.toFixed(1), unit: '°C' },
+    { id: 'CH12', label: 'ERPM', value: data.erpm.toFixed(0), unit: 'erpm' },
+    { id: 'CH13', label: 'Motor A', value: data.motorCurrent.toFixed(1), unit: 'A' },
+    { id: 'CH14', label: 'Regen A', value: data.regenCurrent.toFixed(1), unit: 'A' },
+    { id: 'CH15', label: 'Regen Wh', value: data.regenWh.toFixed(1), unit: 'Wh' },
+    { id: 'CH16', label: 'Regen Ah', value: data.regenAh.toFixed(2), unit: 'Ah' },
   ]
 
   return (
     <div className="border-b border-border bg-secondary">
-      <div className="mx-auto grid max-w-[1600px] grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
+      {/* 16 channels = full rows at every breakpoint (2/4/8 columns). -mb-px folds the last
+          row's cell border into the wrapper's own bottom border. */}
+      <div className="mx-auto -mb-px grid max-w-[1600px] grid-cols-2 sm:grid-cols-4 lg:grid-cols-8">
         {channels.map((ch) => (
           <div
             key={ch.id}
-            className="flex flex-col gap-1 border-r border-border px-4 py-3 last:border-r-0"
+            className="flex flex-col gap-1 border-b border-r border-border px-4 py-3 last:border-r-0"
           >
             <div className="flex items-center justify-between">
               <span className="font-mono text-[0.6rem] uppercase tracking-widest text-muted-foreground">

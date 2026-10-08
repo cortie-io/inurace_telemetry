@@ -59,6 +59,8 @@ export const {
   },
   providers: [
     Credentials({
+      // Not the default "credentials" id: the gate nginx 404s /api/auth/callback/credentials.
+      id: "password",
       async authorize(credentials) {
         const username = String(credentials.username ?? "").trim();
         const password = String(credentials.password ?? "");

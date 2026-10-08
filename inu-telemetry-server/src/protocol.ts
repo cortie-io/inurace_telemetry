@@ -27,6 +27,18 @@ export const telemetryMessage = z.object({
   batteryCurrent: z.number().min(-1000).max(1000),
   rtd: boolish,
   preCharge: boolish,
+  // Added 2026-09-30 (BMS SOC + VESC CAN status). These default to 0 instead of being required so
+  // firmware flashed before this change keeps streaming — a required field here would reject
+  // every frame from it (see the rtd/preCharge note above for how that failure looks).
+  batterySoc: z.number().min(0).max(100).default(0),
+  batteryAhUsed: z.number().min(0).max(100_000).default(0),
+  vescTemp: z.number().min(-40).max(200).default(0),
+  erpm: z.number().min(-1_000_000).max(1_000_000).default(0),
+  motorCurrent: z.number().min(-1000).max(1000).default(0),
+  motorTemp: z.number().min(-40).max(200).default(0),
+  regenWh: z.number().min(0).max(100_000).default(0),
+  regenAh: z.number().min(0).max(100_000).default(0),
+  regenCurrent: z.number().min(0).max(1000).default(0),
 });
 
 export const deviceInboundMessage = z.discriminatedUnion("type", [

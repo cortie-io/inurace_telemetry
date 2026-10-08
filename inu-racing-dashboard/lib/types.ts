@@ -9,6 +9,15 @@ export interface TelemetrySnapshot {
   batteryCurrent: number // 0-400 A
   rtd: boolean // Ready To Drive
   preCharge: boolean
+  batterySoc: number // 0-100 %
+  batteryAhUsed: number // Ah drawn since VESC power-up
+  vescTemp: number // controller FET temp, C
+  erpm: number
+  motorCurrent: number // A, negative while regenerating
+  motorTemp: number // C
+  regenWh: number // Wh regenerated since VESC power-up
+  regenAh: number // Ah regenerated since VESC power-up
+  regenCurrent: number // A flowing back into the pack right now, 0 when driving
 }
 
 export interface TelemetryPoint {
@@ -22,6 +31,15 @@ export interface TelemetryPoint {
   batteryVoltage: number
   batteryCurrent: number
   kw: number // batteryVoltage * batteryCurrent / 1000, computed on arrival — not sent over the wire
+  batterySoc: number
+  batteryAhUsed: number
+  vescTemp: number
+  erpm: number
+  motorCurrent: number
+  motorTemp: number
+  regenWh: number
+  regenAh: number
+  regenCurrent: number
 }
 
 /** A "Lab Time" mark — a start->end window of interest within a session, not a single instant. */

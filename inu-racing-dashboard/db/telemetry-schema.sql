@@ -60,3 +60,29 @@ CREATE TABLE IF NOT EXISTS telemetry_samples_compact (
 CREATE INDEX IF NOT EXISTS telemetry_samples_compact_time_brin_idx ON telemetry_samples_compact USING BRIN (time);
 CREATE INDEX IF NOT EXISTS telemetry_samples_compact_device_time_idx ON telemetry_samples_compact (device_id, time);
 CREATE INDEX IF NOT EXISTS telemetry_samples_compact_session_idx ON telemetry_samples_compact (session_id) WHERE session_id IS NOT NULL;
+
+-- 2026-09-30: BMS SOC + VESC CAN status channels. Added as nullable columns (no default) so the
+-- ALTER is metadata-only on the already-populated partitions — rows written before this stay
+-- NULL, which readers treat as "not recorded" rather than a real 0. ALTER on the partitioned
+-- parent propagates to every existing day partition.
+ALTER TABLE telemetry_samples
+  ADD COLUMN IF NOT EXISTS battery_soc real,
+  ADD COLUMN IF NOT EXISTS battery_ah_used real,
+  ADD COLUMN IF NOT EXISTS vesc_temp real,
+  ADD COLUMN IF NOT EXISTS erpm real,
+  ADD COLUMN IF NOT EXISTS motor_current real,
+  ADD COLUMN IF NOT EXISTS motor_temp real,
+  ADD COLUMN IF NOT EXISTS regen_wh real,
+  ADD COLUMN IF NOT EXISTS regen_ah real,
+  ADD COLUMN IF NOT EXISTS regen_current real;
+
+ALTER TABLE telemetry_samples_compact
+  ADD COLUMN IF NOT EXISTS avg_battery_soc real,
+  ADD COLUMN IF NOT EXISTS avg_battery_ah_used real,
+  ADD COLUMN IF NOT EXISTS avg_vesc_temp real,
+  ADD COLUMN IF NOT EXISTS avg_erpm real,
+  ADD COLUMN IF NOT EXISTS avg_motor_current real,
+  ADD COLUMN IF NOT EXISTS avg_motor_temp real,
+  ADD COLUMN IF NOT EXISTS avg_regen_wh real,
+  ADD COLUMN IF NOT EXISTS avg_regen_ah real,
+  ADD COLUMN IF NOT EXISTS avg_regen_current real;

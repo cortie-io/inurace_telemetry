@@ -1,6 +1,7 @@
 import "./loadEnv.js";
 
 import { createServer, type IncomingMessage } from "node:http";
+import type { Socket } from "node:net";
 import { WebSocket, WebSocketServer, type RawData } from "ws";
 import { env } from "./env.js";
 import {
@@ -171,6 +172,13 @@ const deviceWss = new WebSocketServer({ noServer: true });
 const liveWss = new WebSocketServer({ noServer: true });
 
 server.on("upgrade", (req: IncomingMessage, socket, head) => {
+  // Nagle's algorithm (on by default for TCP sockets) waits to coalesce small writes, which adds
+  // up to ~40ms of avoidable latency per frame for a stream of small, frequent telemetry JSON
+  // messages like ours — there's nothing to gain from batching packets we already emit one at a
+  // time, so disable it for every /device and /live connection. Node's http.Server types this
+  // socket as the generic stream.Duplex (it's always actually a net.Socket/tls.TLSSocket for a
+  // real HTTP(S) upgrade), so setNoDelay needs this cast to be visible to the type checker.
+  (socket as Socket).setNoDelay(true);
   const { pathname } = new URL(req.url ?? "/", "http://internal");
   if (pathname === "/device") {
     deviceWss.handleUpgrade(req, socket, head, (ws) => deviceWss.emit("connection", ws, req));
@@ -268,6 +276,15 @@ deviceWss.on("connection", (ws: WebSocket) => {
       batteryCurrent: t.batteryCurrent,
       rtd: t.rtd,
       precharge: t.preCharge,
+      batterySoc: t.batterySoc,
+      batteryAhUsed: t.batteryAhUsed,
+      vescTemp: t.vescTemp,
+      erpm: t.erpm,
+      motorCurrent: t.motorCurrent,
+      motorTemp: t.motorTemp,
+      regenWh: t.regenWh,
+      regenAh: t.regenAh,
+      regenCurrent: t.regenCurrent,
     });
 
     broadcastToLive({
@@ -283,6 +300,15 @@ deviceWss.on("connection", (ws: WebSocket) => {
       batteryCurrent: t.batteryCurrent,
       rtd: t.rtd,
       preCharge: t.preCharge,
+      batterySoc: t.batterySoc,
+      batteryAhUsed: t.batteryAhUsed,
+      vescTemp: t.vescTemp,
+      erpm: t.erpm,
+      motorCurrent: t.motorCurrent,
+      motorTemp: t.motorTemp,
+      regenWh: t.regenWh,
+      regenAh: t.regenAh,
+      regenCurrent: t.regenCurrent,
     });
   });
 
@@ -374,9 +400,17 @@ setInterval(() => {
 }, env.heartbeatIntervalMs);
 
 // Ensure today's + tomorrow's partition exist on boot, then re-check every 6h (idempotent).
+// A failure here (e.g. DB permissions) must not take down live WS relay — log and retry next tick.
 async function startup(): Promise<void> {
-  await ensurePartitionsAround(new Date());
-  setInterval(() => void ensurePartitionsAround(new Date()), 6 * 60 * 60 * 1000);
+  async function runEnsurePartitions() {
+    try {
+      await ensurePartitionsAround(new Date());
+    } catch (err) {
+      console.error("[partitions] ensure failed — inserts for uncovered days will fail", err);
+    }
+  }
+  await runEnsurePartitions();
+  setInterval(() => void runEnsurePartitions(), 6 * 60 * 60 * 1000);
 
   async function runCompaction() {
     try {

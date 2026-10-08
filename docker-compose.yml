@@ -1,0 +1,20 @@
+# 운영 위치: beta (172.26.4.90). 소스와 빌드는 alpha에서, 배포는 alpha에서 `deploy inu-racing`.
+# 포트는 127.0.0.1과 beta 사설 IP에만 연다 — 외부 요청은 gate만 들어온다.
+name: telemetry
+services:
+  inu-telemetry-server:
+    build: ./inu-telemetry-server
+    image: cortie/inu-telemetry-server:latest
+    env_file: ./inu-telemetry-server/.env.docker
+    ports:
+      - "127.0.0.1:8090:8090"
+      - "172.26.4.90:8090:8090"
+    restart: unless-stopped
+  inu-racing-dashboard:
+    build: ./inu-racing-dashboard
+    image: cortie/inu-racing-dashboard:latest
+    env_file: ./inu-racing-dashboard/.env.docker
+    ports:
+      - "127.0.0.1:3500:3500"
+      - "172.26.4.90:3500:3500"
+    restart: unless-stopped

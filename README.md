@@ -98,8 +98,9 @@ flowchart LR
 동작과 문서가 어긋나면 [`src/protocol.ts`](inu-telemetry-server/src/protocol.ts)와
 [`src/server.ts`](inu-telemetry-server/src/server.ts)가 기준.
 
-텔레메트리 프레임은 9개 필드(steeringAngle/brakeFront/brakeRear/speed/batteryTemp/batteryVoltage/
-batteryCurrent/rtd/preCharge)를 매 프레임 전부 채워 보내며, 값은 raw ADC가 아니라 이미 사람이 읽는
+텔레메트리 프레임은 18개 필드(steeringAngle/brakeFront/brakeRear/speed/batteryTemp/batteryVoltage/
+batteryCurrent/rtd/preCharge + batterySoc/batteryAhUsed/vescTemp/erpm/motorCurrent/motorTemp/regenWh/
+regenAh/regenCurrent)를 매 프레임 전부 채워 보내며, 값은 raw ADC가 아니라 이미 사람이 읽는
 단위(도/%/km·h/°C/V/A)로 변환되어 전송된다.
 
 ## 데이터베이스 스키마
@@ -123,7 +124,8 @@ settings   (singleton row, 팀 공용 배터리 위험 임계값)
 
 ## 대시보드 기능
 
-- **실시간 Graphs / Gauges** — 6채널(속도·조향·전후 브레이크·배터리 온도·전압·전류) + 계산값 kW,
+- **실시간 Graphs / Gauges** — 속도·조향·전후 브레이크·배터리(온도·전압·전류·SOC·누적 Ah)·VESC(온도·ERPM·모터 전류·모터
+  온도·회생 전류/Wh/Ah) 채널 + 계산값 kW,
   10Hz로 렌더 스로틀링된 WebSocket 스트림.
 - **Fullscreen 게이지 클러스터** — 인카 인스트루먼트 클러스터 스타일 전체화면 뷰(속도 아크, 시프트
   라이트, 파워/온도 카드).

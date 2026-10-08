@@ -22,6 +22,20 @@ const REQUIRED_COLUMNS = [
   'batteryCurrent',
 ] as const
 
+// Added after the first exports were already in circulation — read as 0 when the column is
+// missing so an older CSV still loads.
+const OPTIONAL_COLUMNS = [
+  'batterySoc',
+  'batteryAhUsed',
+  'vescTemp',
+  'erpm',
+  'motorCurrent',
+  'motorTemp',
+  'regenWh',
+  'regenAh',
+  'regenCurrent',
+] as const
+
 function parseCsv(text: string): { points: ParsedPoint[] } | { error: string } {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0)
   if (lines.length < 2) return { error: 'File has no data rows' }
@@ -51,6 +65,12 @@ function parseCsv(text: string): { points: ParsedPoint[] } | { error: string } {
     const batteryVoltage = Number(cols[index.batteryVoltage])
     const batteryCurrent = Number(cols[index.batteryCurrent])
     const kw = 'kw' in index ? Number(cols[index.kw]) : (batteryVoltage * batteryCurrent) / 1000
+    const optional = Object.fromEntries(
+      OPTIONAL_COLUMNS.map((c) => {
+        const v = c in index ? Number(cols[index[c]]) : 0
+        return [c, Number.isFinite(v) ? v : 0]
+      }),
+    ) as Record<(typeof OPTIONAL_COLUMNS)[number], number>
 
     // Skip rows that don't parse cleanly rather than aborting the whole file over one bad line.
     if (
@@ -71,6 +91,7 @@ function parseCsv(text: string): { points: ParsedPoint[] } | { error: string } {
       batteryVoltage,
       batteryCurrent,
       kw,
+      ...optional,
       time: new Date(timestamp).toLocaleTimeString('en-US', { hour12: false }),
     })
   }

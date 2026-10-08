@@ -66,6 +66,72 @@ export function GaugesView({ data }: { data: TelemetrySnapshot }) {
           danger={340}
         />
       </Cell>
+      <Cell>
+        <CircularGauge
+          label="Battery SOC"
+          value={data.batterySoc}
+          min={0}
+          max={100}
+          unit="%"
+          color="var(--racing-green)"
+        />
+      </Cell>
+      <Cell>
+        <CircularGauge
+          label="VESC Temp"
+          value={data.vescTemp}
+          min={0}
+          max={120}
+          unit="°C"
+          color="var(--racing-gold)"
+          danger={85}
+          decimals={1}
+        />
+      </Cell>
+      <Cell>
+        <CircularGauge
+          label="Motor Temp"
+          value={data.motorTemp}
+          min={0}
+          max={150}
+          unit="°C"
+          color="var(--racing-gold)"
+          danger={85}
+          decimals={1}
+        />
+      </Cell>
+      <Cell>
+        <CircularGauge
+          label="ERPM"
+          value={data.erpm}
+          min={0}
+          max={25000}
+          unit="erpm"
+          color="var(--primary)"
+        />
+      </Cell>
+      <Cell>
+        <CircularGauge
+          label="Motor Current"
+          value={data.motorCurrent}
+          min={-400}
+          max={400}
+          unit="A"
+          color="var(--racing-gold)"
+          decimals={1}
+        />
+      </Cell>
+      <Cell>
+        <CircularGauge
+          label="Regen Current"
+          value={data.regenCurrent}
+          min={0}
+          max={100}
+          unit="A"
+          color="var(--racing-green)"
+          decimals={1}
+        />
+      </Cell>
     </div>
   )
 }

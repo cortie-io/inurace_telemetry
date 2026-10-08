@@ -1,0 +1,10 @@
+
+# local-only reference/archive material, not part of the tracked source
+/archive/
+/inu-telemetry-server/PitLink_*
+/inu-telemetry-server/.next/
+/inu-racing-dashboard/tsconfig.tsbuildinfo
+.pnpm-store/
+
+# 실제 Wi-Fi·장치 토큰(보드에 올릴 때만) — 공개 저장소에 올리지 않는다
+/inu-telemetry-server/esp32-client/secrets.h

@@ -4,12 +4,16 @@ import { useEffect, useRef, useState } from 'react'
 import type { Bookmark, TelemetryPoint, TelemetrySnapshot } from '@/lib/types'
 
 const MAX_HISTORY = 60 // keep last 60 samples for the graphs
-// Caps UI updates to 10/s regardless of how fast samples arrive. The gauge components'
-// CSS transition durations (circular-gauge.tsx, steering-gauge.tsx, brake-bars.tsx — currently
-// 90ms) are deliberately shorter than this, so each transition finishes before the next
+// Caps UI updates regardless of how fast samples arrive, so a burst of WS messages can't force
+// more re-renders than the UI can actually keep up with (still needed even after the /device and
+// /live socket-level latency fix — this throttle is about render cost, not network delay).
+// Lowered from 100ms once the naive "immediate setState per message" stutter was confirmed fixed
+// at this rate too; push lower only after checking it still holds on real hardware send rates.
+// fullscreen-cluster.tsx's value-driven CSS transitions (the speed arc stroke, metric fill bars —
+// currently 30ms) are deliberately shorter than this, so each transition finishes before the next
 // snapshot lands instead of getting interrupted mid-flight. Keep them in that relationship if
 // either one changes.
-const RENDER_INTERVAL_MS = 100
+const RENDER_INTERVAL_MS = 40
 
 interface LiveTelemetryMessage {
   type: 'telemetry'
@@ -23,6 +27,16 @@ interface LiveTelemetryMessage {
   batteryCurrent: number
   rtd: boolean
   preCharge: boolean
+  // Optional: absent while inu-telemetry-server is still on a build from before these existed.
+  batterySoc?: number
+  batteryAhUsed?: number
+  vescTemp?: number
+  erpm?: number
+  motorCurrent?: number
+  motorTemp?: number
+  regenWh?: number
+  regenAh?: number
+  regenCurrent?: number
 }
 
 interface DeviceStatusMessage {
@@ -83,6 +97,15 @@ export function useTelemetry() {
     batteryCurrent: 0,
     rtd: false,
     preCharge: false,
+    batterySoc: 0,
+    batteryAhUsed: 0,
+    vescTemp: 0,
+    erpm: 0,
+    motorCurrent: 0,
+    motorTemp: 0,
+    regenWh: 0,
+    regenAh: 0,
+    regenCurrent: 0,
   }))
   const [history, setHistory] = useState<TelemetryPoint[]>([])
   const [activeLab, setActiveLab] = useState<ActiveLab | null>(null)
@@ -186,6 +209,15 @@ export function useTelemetry() {
               batteryCurrent: t.batteryCurrent,
               rtd: t.rtd,
               preCharge: t.preCharge,
+              batterySoc: t.batterySoc ?? 0,
+              batteryAhUsed: t.batteryAhUsed ?? 0,
+              vescTemp: t.vescTemp ?? 0,
+              erpm: t.erpm ?? 0,
+              motorCurrent: t.motorCurrent ?? 0,
+              motorTemp: t.motorTemp ?? 0,
+              regenWh: t.regenWh ?? 0,
+              regenAh: t.regenAh ?? 0,
+              regenCurrent: t.regenCurrent ?? 0,
             }
 
             const elapsed = (t.time - startRef.current) / 1000
@@ -204,6 +236,15 @@ export function useTelemetry() {
               batteryVoltage: Math.round(t.batteryVoltage * 10) / 10,
               batteryCurrent: Math.round(t.batteryCurrent),
               kw: Math.round(((t.batteryVoltage * t.batteryCurrent) / 1000) * 10) / 10,
+              batterySoc: Math.round((t.batterySoc ?? 0) * 10) / 10,
+              batteryAhUsed: Math.round((t.batteryAhUsed ?? 0) * 100) / 100,
+              vescTemp: Math.round((t.vescTemp ?? 0) * 10) / 10,
+              erpm: Math.round(t.erpm ?? 0),
+              motorCurrent: Math.round((t.motorCurrent ?? 0) * 10) / 10,
+              motorTemp: Math.round((t.motorTemp ?? 0) * 10) / 10,
+              regenWh: Math.round((t.regenWh ?? 0) * 100) / 100,
+              regenAh: Math.round((t.regenAh ?? 0) * 100) / 100,
+              regenCurrent: Math.round((t.regenCurrent ?? 0) * 10) / 10,
             })
             // A burst between two flushes shouldn't grow past what the graph will ever show.
             if (pendingPointsRef.current.length > MAX_HISTORY) {

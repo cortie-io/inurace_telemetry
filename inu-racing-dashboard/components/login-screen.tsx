@@ -17,7 +17,7 @@ export function LoginScreen() {
     setError(null)
     setSubmitting(true)
     try {
-      const result = await signIn('credentials', {
+      const result = await signIn('password', {
         username: username.trim(),
         password,
         redirect: false,

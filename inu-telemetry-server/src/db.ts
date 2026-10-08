@@ -1,8 +1,18 @@
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { compare } from "bcrypt-ts";
 import pg from "pg";
 import { env } from "./env.js";
 
-export const pool = new pg.Pool({ connectionString: env.databaseUrl });
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// cortie-db(RDS)는 Amazon 자체 CA로 서명돼 있어 Node 기본 신뢰 체인에 없다 — 이 번들로 명시 검증한다.
+const rdsCaPath = path.join(__dirname, "../certs/rds-global-bundle.pem");
+const ssl = existsSync(rdsCaPath)
+  ? { ca: readFileSync(rdsCaPath, "utf8"), rejectUnauthorized: true }
+  : undefined;
+
+export const pool = new pg.Pool({ connectionString: env.databaseUrl, ssl });
 
 // telemetry_samples is range-partitioned by day (created by the dashboard app's migration —
 // this only ensures the day partitions themselves exist, it never creates the parent table).
@@ -71,12 +81,16 @@ export async function compactOldSamples(): Promise<{ rowsCompacted: number; buck
       `INSERT INTO telemetry_samples_compact
          (time, device_id, session_id, sample_count, avg_speed, max_speed, avg_steering_angle,
           avg_brake_front, avg_brake_rear, avg_battery_temp, max_battery_temp, avg_battery_voltage,
-          avg_battery_current, rtd_frac, precharge_frac)
+          avg_battery_current, rtd_frac, precharge_frac, avg_battery_soc, avg_battery_ah_used,
+          avg_vesc_temp, avg_erpm, avg_motor_current, avg_motor_temp, avg_regen_wh, avg_regen_ah,
+          avg_regen_current)
        SELECT
          date_trunc('second', t.time), t.device_id, t.session_id, count(*),
          avg(t.speed), max(t.speed), avg(t.steering_angle), avg(t.brake_front), avg(t.brake_rear),
          avg(t.battery_temp), max(t.battery_temp), avg(t.battery_voltage), avg(t.battery_current),
-         avg(t.rtd::int), avg(t.precharge::int)
+         avg(t.rtd::int), avg(t.precharge::int), avg(t.battery_soc), avg(t.battery_ah_used),
+         avg(t.vesc_temp), avg(t.erpm), avg(t.motor_current), avg(t.motor_temp), avg(t.regen_wh),
+         avg(t.regen_ah), avg(t.regen_current)
        FROM telemetry_samples t
        WHERE ${cutoffClause}
        GROUP BY date_trunc('second', t.time), t.device_id, t.session_id`,
@@ -198,6 +212,15 @@ export interface BufferedSample {
   batteryCurrent: number;
   rtd: boolean;
   precharge: boolean;
+  batterySoc: number;
+  batteryAhUsed: number;
+  vescTemp: number;
+  erpm: number;
+  motorCurrent: number;
+  motorTemp: number;
+  regenWh: number;
+  regenAh: number;
+  regenCurrent: number;
 }
 
 const SAMPLE_COLUMNS = [
@@ -213,7 +236,20 @@ const SAMPLE_COLUMNS = [
   "battery_current",
   "rtd",
   "precharge",
+  "battery_soc",
+  "battery_ah_used",
+  "vesc_temp",
+  "erpm",
+  "motor_current",
+  "motor_temp",
+  "regen_wh",
+  "regen_ah",
+  "regen_current",
 ];
+
+// Postgres caps one statement at 65535 bind parameters — a backed-up buffer (up to hardCap rows)
+// flushed as a single INSERT would exceed that and lose the whole batch.
+const MAX_ROWS_PER_INSERT = Math.floor(65_535 / SAMPLE_COLUMNS.length);
 
 export class BatchWriter {
   private buffer: BufferedSample[] = [];
@@ -249,7 +285,7 @@ export class BatchWriter {
   async flush(): Promise<void> {
     if (this.flushing || this.buffer.length === 0) return;
     this.flushing = true;
-    const batch = this.buffer.splice(0, this.buffer.length);
+    const batch = this.buffer.splice(0, MAX_ROWS_PER_INSERT);
     try {
       const cols = SAMPLE_COLUMNS.length;
       const placeholders: string[] = [];
@@ -272,6 +308,15 @@ export class BatchWriter {
           s.batteryCurrent,
           s.rtd,
           s.precharge,
+          s.batterySoc,
+          s.batteryAhUsed,
+          s.vescTemp,
+          s.erpm,
+          s.motorCurrent,
+          s.motorTemp,
+          s.regenWh,
+          s.regenAh,
+          s.regenCurrent,
         );
       });
       const sql = `INSERT INTO telemetry_samples (${SAMPLE_COLUMNS.join(",")}) VALUES ${placeholders.join(",")}`;
@@ -286,6 +331,10 @@ export class BatchWriter {
 
   async shutdown(): Promise<void> {
     clearInterval(this.timer);
-    await this.flush();
+    // One flush() writes at most MAX_ROWS_PER_INSERT rows, so drain until empty.
+    while (this.buffer.length > 0) {
+      if (this.flushing) await new Promise((resolve) => setTimeout(resolve, 10));
+      else await this.flush();
+    }
   }
 }

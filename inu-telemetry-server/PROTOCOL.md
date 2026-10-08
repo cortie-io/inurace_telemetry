@@ -59,7 +59,7 @@
 
 ### 텔레메트리 프레임 (기기 → 서버)
 
-인증 후에는 이 타입만 받습니다. **매 프레임마다 9개 필드를 전부 채워서** 보냅니다 — 일부 필드만
+인증 후에는 이 타입만 받습니다. **매 프레임마다 18개 필드를 전부 채워서** 보냅니다 — 일부 필드만
 보내는 부분 업데이트(delta)는 지원하지 않습니다 (실측 전송 속도가 아직 안 나와서, 우선 이 구조를
 유지하기로 결정 — 나중에 실측해서 병목이면 배치 전송 구조로 바꿀 수 있음).
 
@@ -74,7 +74,16 @@
   "batteryVoltage": 88.1,
   "batteryCurrent": 228.1,
   "rtd": true,
-  "preCharge": false
+  "preCharge": false,
+  "batterySoc": 76.5,
+  "batteryAhUsed": 3.214,
+  "vescTemp": 41.2,
+  "erpm": 10320,
+  "motorCurrent": 182.4,
+  "motorTemp": 58.7,
+  "regenWh": 12.85,
+  "regenAh": 0.151,
+  "regenCurrent": 0
 }
 ```
 
@@ -92,6 +101,20 @@
 | `batteryCurrent` | number | A | −1000 ~ 1000 | 배터리 전류 (음수 = 회생/충전 방향으로 쓰고 싶으면 사용, 지금 프론트는 절댓값 취급) |
 | `rtd` | boolean (또는 0/1 숫자) | – | – | Ready To Drive 상태 |
 | `preCharge` | boolean (또는 0/1 숫자) | – | – | 프리차지 릴레이 상태 |
+| `batterySoc` | number | % | 0 ~ 100 | 배터리 잔량 (BMS SOC) |
+| `batteryAhUsed` | number | Ah | 0 ~ 100000 | 누적 사용량 — VESC 전원 인가 후 배터리에서 쓴 총 전하량 (VESC STATUS_2) |
+| `vescTemp` | number | °C | −40 ~ 200 | VESC(컨트롤러 FET) 온도 (STATUS_4) |
+| `erpm` | number | erpm | −1000000 ~ 1000000 | 모터 전기적 RPM, 후진 시 음수 (STATUS) |
+| `motorCurrent` | number | A | −1000 ~ 1000 | 모터 상전류, 회생 시 음수 (STATUS) |
+| `motorTemp` | number | °C | −40 ~ 200 | 모터 온도 (STATUS_4) |
+| `regenWh` | number | Wh | 0 ~ 100000 | 누적 회생 에너지 (STATUS_3 watt_hours_charged) |
+| `regenAh` | number | Ah | 0 ~ 100000 | 누적 회생 전하량 (STATUS_2 amp_hours_charged) |
+| `regenCurrent` | number | A | 0 ~ 1000 | 순간 회생 전류 — VESC 입력 전류가 음수일 때의 크기, 구동 중엔 0 |
+
+`batterySoc` 이하 9개 필드(2026-09-30 추가)는 **생략하면 0으로 처리**됩니다 — 이전 펌웨어가 보내는
+9필드 프레임도 그대로 받아들이기 위한 것이고, 새 펌웨어는 전부 채워 보냅니다. 다만 보낸 값이 범위를
+벗어나면 다른 필드와 똑같이 프레임 전체가 거부되므로, 펌웨어(`esp32-client.ino`의 `clampf`)가 전송
+전에 이 범위로 잘라서 보냅니다. DB에서는 이 컬럼들이 nullable이라, 추가 이전에 저장된 행은 NULL입니다.
 
 범위를 벗어나거나 타입이 안 맞는 필드가 하나라도 있으면 zod 검증에서 메시지 전체가 거부되고
 `{"type":"error","text":"expected telemetry message"}` 응답만 오고 저장/브로드캐스트되지 않습니다 —
@@ -133,7 +156,16 @@ epoch)입니다. 하드웨어 시계 드리프트를 신경 쓰지 않기 위한
   "batteryVoltage": 88.1,
   "batteryCurrent": 228.1,
   "rtd": true,
-  "preCharge": false
+  "preCharge": false,
+  "batterySoc": 76.5,
+  "batteryAhUsed": 3.214,
+  "vescTemp": 41.2,
+  "erpm": 10320,
+  "motorCurrent": 182.4,
+  "motorTemp": 58.7,
+  "regenWh": 12.85,
+  "regenAh": 0.151,
+  "regenCurrent": 0
 }
 ```
 

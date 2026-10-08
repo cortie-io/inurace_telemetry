@@ -25,6 +25,9 @@ function clamp(v: number, min: number, max: number) {
 const ws = new WebSocket(WS_URL);
 let phase = 0;
 let sent = 0;
+let ahUsed = 0;
+let regenAh = 0;
+let regenWh = 0;
 let sendTimer: ReturnType<typeof setInterval> | null = null;
 
 ws.on("open", () => {
@@ -49,6 +52,11 @@ ws.on("message", (raw) => {
       const batteryCurrent = clamp((throttling ? 220 : 40) + Math.sin(p * 1.1) * 90 + Math.random() * 20, 0, 400);
       const batteryVoltage = clamp(96 - (batteryCurrent / 400) * 14 + Math.sin(p * 0.3) * 1.5, 0, 100);
       const batteryTemp = clamp(34 + Math.sin(p * 0.15) * 10 + (batteryCurrent / 400) * 26, 0, 80);
+      const regenCurrent = throttling ? 0 : clamp(20 + Math.abs(Math.sin(p * 1.3)) * 40, 0, 100);
+      const dtHours = INTERVAL_MS / 3_600_000;
+      ahUsed += batteryCurrent * dtHours;
+      regenAh += regenCurrent * dtHours;
+      regenWh += regenCurrent * batteryVoltage * dtHours;
 
       ws.send(
         JSON.stringify({
@@ -62,6 +70,15 @@ ws.on("message", (raw) => {
           batteryCurrent,
           rtd: true,
           preCharge: p % 8 < 1.2,
+          batterySoc: clamp(100 - ahUsed * 2, 0, 100),
+          batteryAhUsed: ahUsed,
+          vescTemp: clamp(30 + (batteryCurrent / 400) * 45, 0, 120),
+          erpm: Math.round(speed / 0.0072),
+          motorCurrent: throttling ? batteryCurrent * 1.2 : -regenCurrent * 1.2,
+          motorTemp: clamp(40 + (batteryCurrent / 400) * 60, 0, 150),
+          regenWh,
+          regenAh,
+          regenCurrent,
         }),
       );
       sent++;

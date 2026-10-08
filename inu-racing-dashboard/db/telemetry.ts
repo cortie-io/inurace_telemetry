@@ -24,6 +24,15 @@ export interface HistoryPoint {
   batteryTemp: number;
   batteryVoltage: number;
   batteryCurrent: number;
+  batterySoc: number;
+  batteryAhUsed: number;
+  vescTemp: number;
+  erpm: number;
+  motorCurrent: number;
+  motorTemp: number;
+  regenWh: number;
+  regenAh: number;
+  regenCurrent: number;
 }
 
 export interface HistoryStats {
@@ -53,6 +62,9 @@ export async function queryHistory(
   // compaction boundary reads as one continuous series instead of losing its older half. Raw rows
   // count as weight 1 each; compact rows already represent `sample_count` raw rows, so weighting
   // by that reconstructs the same average as if compaction had never happened.
+  // The SOC/VESC columns are NULL on rows recorded before they existed, so their weight only
+  // counts rows that actually have a value — otherwise a bucket straddling that boundary would
+  // average toward 0.
   const rows = await client<
     {
       bucket: Date;
@@ -63,16 +75,28 @@ export async function queryHistory(
       battery_temp: number | null;
       battery_voltage: number | null;
       battery_current: number | null;
+      battery_soc: number | null;
+      battery_ah_used: number | null;
+      vesc_temp: number | null;
+      erpm: number | null;
+      motor_current: number | null;
+      motor_temp: number | null;
+      regen_wh: number | null;
+      regen_ah: number | null;
+      regen_current: number | null;
     }[]
   >`
     WITH combined AS (
       SELECT time, speed, steering_angle, brake_front, brake_rear, battery_temp, battery_voltage,
-             battery_current, 1 AS n
+             battery_current, battery_soc, battery_ah_used, vesc_temp, erpm, motor_current,
+             motor_temp, regen_wh, regen_ah, regen_current, 1 AS n
       FROM telemetry_samples
       WHERE time >= ${from} AND time <= ${to}
       UNION ALL
       SELECT time, avg_speed, avg_steering_angle, avg_brake_front, avg_brake_rear, avg_battery_temp,
-             avg_battery_voltage, avg_battery_current, sample_count AS n
+             avg_battery_voltage, avg_battery_current, avg_battery_soc, avg_battery_ah_used,
+             avg_vesc_temp, avg_erpm, avg_motor_current, avg_motor_temp, avg_regen_wh, avg_regen_ah,
+             avg_regen_current, sample_count AS n
       FROM telemetry_samples_compact
       WHERE time >= ${from} AND time <= ${to}
     )
@@ -84,7 +108,16 @@ export async function queryHistory(
       (sum(brake_rear * n) / sum(n))::real AS brake_rear,
       (sum(battery_temp * n) / sum(n))::real AS battery_temp,
       (sum(battery_voltage * n) / sum(n))::real AS battery_voltage,
-      (sum(battery_current * n) / sum(n))::real AS battery_current
+      (sum(battery_current * n) / sum(n))::real AS battery_current,
+      (sum(battery_soc * n) / NULLIF(sum(n) FILTER (WHERE battery_soc IS NOT NULL), 0))::real AS battery_soc,
+      (sum(battery_ah_used * n) / NULLIF(sum(n) FILTER (WHERE battery_ah_used IS NOT NULL), 0))::real AS battery_ah_used,
+      (sum(vesc_temp * n) / NULLIF(sum(n) FILTER (WHERE vesc_temp IS NOT NULL), 0))::real AS vesc_temp,
+      (sum(erpm * n) / NULLIF(sum(n) FILTER (WHERE erpm IS NOT NULL), 0))::real AS erpm,
+      (sum(motor_current * n) / NULLIF(sum(n) FILTER (WHERE motor_current IS NOT NULL), 0))::real AS motor_current,
+      (sum(motor_temp * n) / NULLIF(sum(n) FILTER (WHERE motor_temp IS NOT NULL), 0))::real AS motor_temp,
+      (sum(regen_wh * n) / NULLIF(sum(n) FILTER (WHERE regen_wh IS NOT NULL), 0))::real AS regen_wh,
+      (sum(regen_ah * n) / NULLIF(sum(n) FILTER (WHERE regen_ah IS NOT NULL), 0))::real AS regen_ah,
+      (sum(regen_current * n) / NULLIF(sum(n) FILTER (WHERE regen_current IS NOT NULL), 0))::real AS regen_current
     FROM combined
     GROUP BY bucket
     ORDER BY bucket
@@ -99,6 +132,15 @@ export async function queryHistory(
     batteryTemp: Math.round((r.battery_temp ?? 0) * 10) / 10,
     batteryVoltage: Math.round((r.battery_voltage ?? 0) * 10) / 10,
     batteryCurrent: Math.round(r.battery_current ?? 0),
+    batterySoc: Math.round((r.battery_soc ?? 0) * 10) / 10,
+    batteryAhUsed: Math.round((r.battery_ah_used ?? 0) * 100) / 100,
+    vescTemp: Math.round((r.vesc_temp ?? 0) * 10) / 10,
+    erpm: Math.round(r.erpm ?? 0),
+    motorCurrent: Math.round((r.motor_current ?? 0) * 10) / 10,
+    motorTemp: Math.round((r.motor_temp ?? 0) * 10) / 10,
+    regenWh: Math.round((r.regen_wh ?? 0) * 100) / 100,
+    regenAh: Math.round((r.regen_ah ?? 0) * 100) / 100,
+    regenCurrent: Math.round((r.regen_current ?? 0) * 10) / 10,
   }));
 
   const [statsRow] = await client<
@@ -160,6 +202,16 @@ export interface RawSample {
   batteryCurrent: number;
   rtd: boolean;
   precharge: boolean;
+  // null = row was recorded before these channels existed (not a real 0).
+  batterySoc: number | null;
+  batteryAhUsed: number | null;
+  vescTemp: number | null;
+  erpm: number | null;
+  motorCurrent: number | null;
+  motorTemp: number | null;
+  regenWh: number | null;
+  regenAh: number | null;
+  regenCurrent: number | null;
 }
 
 /** Raw, unaggregated rows exactly as stored — for the "Raw Data" tab. Newest first. */
@@ -172,7 +224,9 @@ export async function queryRawSamples(
   const rows = await client<RawSampleRow[]>`
     SELECT
       t.time, d.device_key, t.session_id, t.steering_angle, t.brake_front, t.brake_rear,
-      t.speed, t.battery_temp, t.battery_voltage, t.battery_current, t.rtd, t.precharge
+      t.speed, t.battery_temp, t.battery_voltage, t.battery_current, t.rtd, t.precharge,
+      t.battery_soc, t.battery_ah_used, t.vesc_temp, t.erpm, t.motor_current, t.motor_temp,
+      t.regen_wh, t.regen_ah, t.regen_current
     FROM telemetry_samples t
     JOIN devices d ON d.id = t.device_id
     ORDER BY t.time DESC
@@ -196,7 +250,9 @@ export async function queryRawSamplesInRange(from: Date, to: Date): Promise<RawS
   const rows = await client<RawSampleRow[]>`
     SELECT
       t.time, d.device_key, t.session_id, t.steering_angle, t.brake_front, t.brake_rear,
-      t.speed, t.battery_temp, t.battery_voltage, t.battery_current, t.rtd, t.precharge
+      t.speed, t.battery_temp, t.battery_voltage, t.battery_current, t.rtd, t.precharge,
+      t.battery_soc, t.battery_ah_used, t.vesc_temp, t.erpm, t.motor_current, t.motor_temp,
+      t.regen_wh, t.regen_ah, t.regen_current
     FROM telemetry_samples t
     JOIN devices d ON d.id = t.device_id
     WHERE t.time >= ${from} AND t.time <= ${to}
@@ -244,6 +300,15 @@ type RawSampleRow = {
   battery_current: number;
   rtd: boolean;
   precharge: boolean;
+  battery_soc: number | null;
+  battery_ah_used: number | null;
+  vesc_temp: number | null;
+  erpm: number | null;
+  motor_current: number | null;
+  motor_temp: number | null;
+  regen_wh: number | null;
+  regen_ah: number | null;
+  regen_current: number | null;
 };
 
 function mapRawSample(r: RawSampleRow): RawSample {
@@ -260,5 +325,14 @@ function mapRawSample(r: RawSampleRow): RawSample {
     batteryCurrent: r.battery_current,
     rtd: r.rtd,
     precharge: r.precharge,
+    batterySoc: r.battery_soc,
+    batteryAhUsed: r.battery_ah_used,
+    vescTemp: r.vesc_temp,
+    erpm: r.erpm,
+    motorCurrent: r.motor_current,
+    motorTemp: r.motor_temp,
+    regenWh: r.regen_wh,
+    regenAh: r.regen_ah,
+    regenCurrent: r.regen_current,
   };
 }
